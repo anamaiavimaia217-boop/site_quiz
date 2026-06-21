@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz do Futuro</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #101936, #243b73); margin: 0; padding: 0; color: white; }
+    .container { max-width: 850px; margin: 35px auto; background: rgba(255, 255, 255, 0.10); padding: 30px; border-radius: 16px; box-shadow: 0 0 20px rgba(0,0,0,0.4); }
+    h1, h2 { text-align: center; }
+    input, button, select { padding: 12px; border-radius: 8px; border: none; font-size: 16px; }
+    input { width: calc(100% - 24px); margin: 10px 0 20px 0; }
+    .blocos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .bloco-btn { background: #00c2ff; color: #06111f; font-weight: bold; cursor: pointer; min-height: 58px; width: 100%; }
+    .bloco-btn:hover { background: #66ddff; }
+    .alternativa { display: block; background: rgba(255, 255, 255, 0.15); padding: 12px; margin: 10px 0; border-radius: 8px; cursor: pointer; text-align: left; }
+    .alternativa:hover { background: rgba(255, 255, 255, 0.25); }
+    .botao-proximo, .botao-voltar { width: 100%; background: #00c2ff; color: #06111f; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    .barra { width: 100%; height: 18px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; margin: 15px 0; }
+    .progressoBarra { height: 100%; width: 0%; background: #00c2ff; }
+    #progresso { text-align: center; font-weight: bold; }
+    .resultado-caixa { text-align: center; font-size: 20px; }
+    .pequeno { text-align: center; opacity: 0.85; }
+    .aviso { background: rgba(255,255,255,0.12); padding: 12px; border-radius: 10px; text-align: center; margin: 10px 0; }
+    @media (max-width: 600px) { .container { margin: 10px; padding: 20px; } .blocos { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Quiz sobre o Futuro</h1>
+    <p class="pequeno">Digite seu nome e escolha um bloco para responder.</p>
+
+    <div id="inicio">
+      <p>Digite seu nome:</p>
+      <input id="nome" type="text" placeholder="Seu nome">
+
+      <h2>Escolha um bloco</h2>
+      <div id="statusBlocos" class="aviso">Carregando blocos...</div>
+      <div id="listaBlocos" class="blocos"></div>
+
+      <h2>Outros modos</h2>
+      <button class="bloco-btn" onclick="iniciarBlocoAleatorio()">Escolher bloco aleatório</button>
+
+      <p>Quantidade de perguntas aleatórias:</p>
+      <input id="quantidadeAleatoria" type="number" min="1" placeholder="Exemplo: 20">
+      <button class="bloco-btn" onclick="iniciarPerguntasAleatorias()">Começar perguntas aleatórias</button>
+    </div>
+
+    <div id="quiz" style="display:none;">
+      <h2 id="bloco"></h2>
+      <p id="progresso"></p>
+      <p id="tempo">Tempo: 0s</p>
+      <div class="barra"><div id="progressoBarra" class="progressoBarra"></div></div>
+      <h3 id="pergunta"></h3>
+      <div id="alternativas"></div>
+      <button class="botao-proximo" onclick="proximaPergunta()">Próxima</button>
+    </div>
+
+    <div id="resultado" style="display:none;">
+      <h2>Resultado final</h2>
+      <div class="resultado-caixa">
+        <p id="textoResultado"></p>
+        <p id="mensagemResultado"></p>
+      </div>
+      <button class="botao-voltar" onclick="reiniciar()">Voltar ao início</button>
+    </div>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAQa01JldZB_4qRkqcMyaDw2PbQ6avkuY8",
+  authDomain: "local-storage-5edf9.firebaseapp.com",
+  projectId: "local-storage-5edf9",
+  storageBucket: "local-storage-5edf9.firebasestorage.app",
+  messagingSenderId: "701733020913",
+  appId: "1:701733020913:web:fff6cf9e72e1aa92a07550",
+  measurementId: "G-GZR05M50FP"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const perguntas = [
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "Qual é uma diferença importante entre IA simples e IA generativa?",
+    "alternativas": [
+      "A IA generativa cria novos conteúdos",
+      "A IA simples nunca usa dados",
+      "A IA generativa não usa algoritmos",
+      "A IA simples sempre cria imagens"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "Por que sensores são importantes em casas inteligentes?",
+    "alternativas": [
+      "Eles detectam mudanças no ambiente",
+      "Eles substituem todos os móveis",
+      "Eles produzem energia infinita",
+      "Eles armazenam água da chuva"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "O que permite que muitos aparelhos se conectem em uma casa inteligente?",
+    "alternativas": [
+      "Somente baterias externas",
+      "Apenas controle por papel",
+      "Apenas cabos de televisão",
+      "Redes e internet das coisas"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "Qual é um possível risco do uso de inteligência artificial?",
+    "alternativas": [
+      "Impedir qualquer automação",
+      "Aumentar a privacidade automaticamente",
+      "Eliminar todos os erros humanos",
+      "Uso indevido de dados pessoais"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "O que é realidade aumentada?",
+    "alternativas": [
+      "Ambiente 100% digital fechado",
+      "Mistura de elementos digitais com o mundo real",
+      "Cópia física de um objeto virtual",
+      "Internet sem imagens ou vídeos"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "Por que a computação quântica pode ser importante no futuro?",
+    "alternativas": [
+      "Porque pode resolver certos problemas complexos",
+      "Porque elimina a eletricidade",
+      "Porque funciona sem programação",
+      "Porque usa papel para calcular"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "Qual tecnologia é essencial para carros autônomos perceberem o ambiente?",
+    "alternativas": [
+      "Somente faróis coloridos",
+      "Apenas rodas maiores",
+      "Sensores, câmeras e radares",
+      "Apenas rádio comum"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "O que significa automação?",
+    "alternativas": [
+      "Evitar qualquer tipo de máquina",
+      "Fazer tarefas manualmente sempre",
+      "Usar tecnologia para realizar tarefas",
+      "Desligar todos os sistemas"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "Qual é uma função da internet das coisas?",
+    "alternativas": [
+      "Conectar objetos à rede para trocar dados",
+      "Transformar objetos em seres vivos",
+      "Apagar informações da internet",
+      "Impedir comunicação entre aparelhos"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Tecnologia",
+    "pergunta": "O que torna uma tecnologia realmente útil para a sociedade?",
+    "alternativas": [
+      "Resolver problemas reais com segurança",
+      "Substituir todas as pessoas",
+      "Funcionar apenas em laboratório",
+      "Ser cara e difícil de usar"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Qual é uma vantagem dos veículos elétricos em relação aos movidos a gasolina?",
+    "alternativas": [
+      "Não precisam de manutenção alguma",
+      "Funcionam sem nenhuma energia",
+      "Usam mais carvão diretamente",
+      "Emitem menos poluentes durante o uso"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "O que é necessário para carros autônomos serem mais seguros?",
+    "alternativas": [
+      "Menos testes nas ruas",
+      "Estradas sem sinalização",
+      "Sensores confiáveis e bons algoritmos",
+      "Motor mais barulhento"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Como sistemas inteligentes podem reduzir congestionamentos?",
+    "alternativas": [
+      "Aumentando semáforos quebrados",
+      "Organizando fluxos de veículos",
+      "Fechando todo transporte público",
+      "Colocando carros mais pesados"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Qual desafio existe para carros voadores em cidades grandes?",
+    "alternativas": [
+      "Controle de tráfego aéreo urbano",
+      "Ausência total de energia",
+      "Impossibilidade de pouso em qualquer lugar",
+      "Falta de céu"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Por que trens de alta velocidade podem ser importantes?",
+    "alternativas": [
+      "Porque não precisam de trilhos",
+      "Porque funcionam apenas com vento",
+      "Porque substituem todas as caminhadas",
+      "Porque transportam muitas pessoas rapidamente"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "O que torna um transporte sustentável?",
+    "alternativas": [
+      "Mais fumaça no trajeto",
+      "Baixo impacto ambiental e eficiência",
+      "Maior consumo de combustível",
+      "Uso obrigatório de petróleo"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Qual tecnologia pode ajudar entregas em locais de difícil acesso?",
+    "alternativas": [
+      "Drones de entrega",
+      "Carruagens antigas",
+      "Semáforos manuais",
+      "Navios em qualquer rua"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Qual é um problema que precisa ser resolvido nos veículos elétricos?",
+    "alternativas": [
+      "Infraestrutura de recarga",
+      "Como retirar baterias de todos",
+      "Como usar gasolina comum",
+      "Como aumentar fumaça"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Por que transporte público eficiente ajuda o futuro das cidades?",
+    "alternativas": [
+      "Impede deslocamentos longos",
+      "Elimina todos os pedestres",
+      "Pode reduzir carros nas ruas",
+      "Aumenta filas sem necessidade"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Transporte",
+    "pergunta": "Qual é uma meta do transporte espacial do futuro?",
+    "alternativas": [
+      "Voltar apenas ao transporte animal",
+      "Tornar viagens espaciais mais seguras e acessíveis",
+      "Impedir pesquisas fora da Terra",
+      "Usar apenas foguetes descartáveis sempre"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "Por que Marte é estudado como possível destino humano?",
+    "alternativas": [
+      "Por ter condições mais próximas da Terra que outros planetas",
+      "Por ser feito de água líquida",
+      "Por não ter nenhuma radiação",
+      "Por estar mais perto que a Lua"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "Qual seria uma função de uma base lunar?",
+    "alternativas": [
+      "Substituir todos os países",
+      "Produzir oxigênio sem tecnologia",
+      "Impedir viagens a Marte",
+      "Servir como apoio para pesquisas e missões"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "O que dificulta a vida humana fora da Terra?",
+    "alternativas": [
+      "Clima sempre igual ao da Terra",
+      "Ausência de tecnologia na Terra",
+      "Excesso de oxigênio natural",
+      "Radiação, baixa gravidade e falta de recursos"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "O que são exoplanetas?",
+    "alternativas": [
+      "Planetas feitos por humanos",
+      "Planetas fora do Sistema Solar",
+      "Satélites artificiais da Terra",
+      "Meteoros dentro da atmosfera"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "Por que telescópios espaciais são úteis?",
+    "alternativas": [
+      "Observam sem parte da interferência da atmosfera",
+      "Substituem foguetes tripulados",
+      "Produzem combustível para satélites",
+      "Criam novas estrelas"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "O que é uma órbita?",
+    "alternativas": [
+      "Explosão de uma estrela",
+      "Tipo de combustível espacial",
+      "Nome de uma galáxia",
+      "Caminho de um corpo ao redor de outro"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "Qual é uma razão para estudar asteroides?",
+    "alternativas": [
+      "Transformá-los em planetas sempre",
+      "Impedir a luz do Sol",
+      "Entender riscos e recursos do espaço",
+      "Apagar crateras da Lua"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "Por que a água é importante em missões espaciais?",
+    "alternativas": [
+      "Substitui todos os alimentos",
+      "Pode ajudar na sobrevivência e produzir combustível",
+      "Serve apenas para decorar naves",
+      "Impede qualquer radiação sozinha"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "Qual é um desafio de viagens para outras estrelas?",
+    "alternativas": [
+      "As distâncias são extremamente grandes",
+      "As estrelas ficam dentro da Terra",
+      "Não existe luz no espaço",
+      "Foguetes não podem sair da Lua"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Espaço",
+    "pergunta": "O que a exploração espacial pode trazer para a Terra?",
+    "alternativas": [
+      "Menos pesquisas médicas",
+      "Fim de todos os satélites",
+      "Aumento obrigatório da poluição",
+      "Conhecimento científico e novas tecnologias"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Qual atitude reduz melhor o impacto do lixo plástico?",
+    "alternativas": [
+      "Jogar em rios distantes",
+      "Queimar plástico em casa",
+      "Reduzir, reutilizar e reciclar",
+      "Misturar tudo no mesmo lixo"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Por que energia solar é considerada renovável?",
+    "alternativas": [
+      "Porque só funciona com carvão",
+      "Porque depende de uma fonte natural contínua",
+      "Porque vem do petróleo refinado",
+      "Porque acaba em poucos dias"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "O que são gases de efeito estufa?",
+    "alternativas": [
+      "Gases que retêm calor na atmosfera",
+      "Gases que congelam oceanos",
+      "Gases que criam água potável",
+      "Gases que eliminam a luz solar"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Por que preservar florestas ajuda o clima?",
+    "alternativas": [
+      "Elas aumentam queimadas naturalmente",
+      "Elas produzem plástico biodegradável",
+      "Elas impedem chuvas em todo lugar",
+      "Elas ajudam a absorver carbono"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "O que é desenvolvimento sustentável?",
+    "alternativas": [
+      "Parar toda atividade humana",
+      "Aumentar lixo para gerar emprego",
+      "Crescer sem destruir recursos do futuro",
+      "Usar recursos sem controle"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Qual ação economiza água de forma eficiente?",
+    "alternativas": [
+      "Trocar água limpa por água salgada",
+      "Consertar vazamentos e evitar desperdícios",
+      "Lavar calçadas todos os dias",
+      "Deixar torneiras abertas"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Por que os oceanos são importantes para o planeta?",
+    "alternativas": [
+      "Regulam clima e abrigam biodiversidade",
+      "Servem apenas para transporte",
+      "Não influenciam o clima",
+      "Substituem as florestas completamente"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Qual é uma consequência possível das mudanças climáticas?",
+    "alternativas": [
+      "Desaparecimento imediato da noite",
+      "Fim de todos os ventos",
+      "Aumento garantido de gelo em todo planeta",
+      "Eventos extremos mais frequentes"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Qual é uma vantagem da energia eólica?",
+    "alternativas": [
+      "Produz fumaça constante",
+      "Funciona apenas debaixo d’água",
+      "Gera energia usando o vento",
+      "Usa carvão para girar turbinas"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Meio Ambiente",
+    "pergunta": "Por que a biodiversidade deve ser protegida?",
+    "alternativas": [
+      "Aumenta poluição dos rios",
+      "Mantém equilíbrio dos ecossistemas",
+      "Impede qualquer adaptação",
+      "Diminui alimentos disponíveis"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Como a IA pode ajudar no diagnóstico médico?",
+    "alternativas": [
+      "Analisando padrões em exames e dados",
+      "Substituindo todas as consultas humanas",
+      "Criando doenças novas",
+      "Eliminando a necessidade de exames"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "O que é medicina personalizada?",
+    "alternativas": [
+      "Remédio igual para todos sempre",
+      "Consulta sem informação médica",
+      "Cirurgia feita sem exames",
+      "Tratamento adaptado ao paciente"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Por que vacinas são importantes para a saúde pública?",
+    "alternativas": [
+      "Substituem alimentação saudável",
+      "Funcionam apenas após a doença",
+      "Ajudam a prevenir doenças e surtos",
+      "Aumentam a transmissão de vírus"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Como robôs podem ajudar em cirurgias complexas?",
+    "alternativas": [
+      "Impedindo o uso de médicos",
+      "Aumentando precisão dos movimentos",
+      "Tornando procedimentos aleatórios",
+      "Eliminando esterilização"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "O que a genética estuda?",
+    "alternativas": [
+      "Hereditariedade e genes",
+      "Apenas planetas distantes",
+      "Somente construção civil",
+      "Apenas eletricidade"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Qual pode ser um uso de órgãos artificiais?",
+    "alternativas": [
+      "Criar máquinas de transporte",
+      "Evitar qualquer tratamento",
+      "Aumentar doenças",
+      "Substituir funções de órgãos danificados"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "O que sensores vestíveis podem monitorar?",
+    "alternativas": [
+      "Somente previsão do tempo",
+      "Apenas velocidade de carros",
+      "Batimentos, sono e atividades",
+      "Apenas cor da roupa"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Qual é uma vantagem de diagnósticos mais rápidos?",
+    "alternativas": [
+      "Evitar prevenção",
+      "Iniciar tratamentos mais cedo",
+      "Atrasar o atendimento",
+      "Diminuir informações médicas"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Por que dados médicos precisam de proteção?",
+    "alternativas": [
+      "Porque são informações pessoais sensíveis",
+      "Porque não têm valor nenhum",
+      "Porque devem ser públicos sempre",
+      "Porque impedem consultas"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Medicina",
+    "pergunta": "Qual hábito ajuda na prevenção de doenças?",
+    "alternativas": [
+      "Sedentarismo constante",
+      "Dormir cada vez menos",
+      "Evitar água potável",
+      "Alimentação equilibrada e exercícios"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Como a tecnologia pode tornar o ensino mais personalizado?",
+    "alternativas": [
+      "Eliminando dúvidas dos alunos",
+      "Impedindo avaliações",
+      "Adaptando atividades ao ritmo do aluno",
+      "Dando a mesma dificuldade para todos sempre"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Qual é um benefício dos laboratórios virtuais?",
+    "alternativas": [
+      "Impedir experimentos científicos",
+      "Permitir simulações seguras e interativas",
+      "Substituir todo contato social",
+      "Eliminar qualquer prática real"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Como a IA pode auxiliar estudantes?",
+    "alternativas": [
+      "Sugerindo explicações e exercícios",
+      "Fazendo o aluno nunca pensar",
+      "Apagando conteúdos escolares",
+      "Impedindo leitura"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Qual habilidade será cada vez mais importante?",
+    "alternativas": [
+      "Decorar sem entender",
+      "Evitar tecnologia",
+      "Ignorar fontes de informação",
+      "Pensamento crítico"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Por que verificar fontes é importante?",
+    "alternativas": [
+      "Elimina a necessidade de estudar",
+      "Impede pesquisas",
+      "Ajuda a evitar informações falsas",
+      "Faz qualquer texto ser verdadeiro"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "O que é aprendizagem contínua?",
+    "alternativas": [
+      "Evitar novas habilidades",
+      "Continuar aprendendo ao longo da vida",
+      "Estudar apenas uma vez",
+      "Aprender só na infância"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Como a realidade virtual pode ajudar em história?",
+    "alternativas": [
+      "Simulando ambientes e épocas estudadas",
+      "Apagando documentos históricos",
+      "Substituindo todos os livros por jogos",
+      "Transformando passado em presente real"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Qual é uma vantagem dos livros digitais?",
+    "alternativas": [
+      "Impossibilidade de atualização",
+      "Peso maior que livros comuns",
+      "Uso apenas sem internet e sem tela",
+      "Acesso fácil e busca rápida"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Qual cuidado é necessário no ensino online?",
+    "alternativas": [
+      "Nunca fazer perguntas",
+      "Evitar horários de estudo",
+      "Organização e participação ativa",
+      "Desligar toda comunicação"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Educação",
+    "pergunta": "Qual é um objetivo da educação do futuro?",
+    "alternativas": [
+      "Impedir colaboração",
+      "Preparar para resolver problemas reais",
+      "Eliminar criatividade",
+      "Reduzir o acesso ao conhecimento"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "O que caracteriza uma cidade inteligente?",
+    "alternativas": [
+      "Uso de dados e tecnologia para melhorar serviços",
+      "Ausência total de transporte",
+      "Mais desperdício de energia",
+      "Menos comunicação pública"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Como sensores urbanos podem ajudar a cidade?",
+    "alternativas": [
+      "Criando ruas sem saída",
+      "Desligando serviços essenciais",
+      "Aumentando o lixo nas ruas",
+      "Monitorando trânsito, luz e qualidade do ar"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Qual é uma função da iluminação pública inteligente?",
+    "alternativas": [
+      "Funcionar apenas com velas",
+      "Impedir economia de energia",
+      "Ajustar luz conforme necessidade",
+      "Ficar acesa no máximo sempre"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Por que áreas verdes são importantes nas cidades?",
+    "alternativas": [
+      "Impedem transporte público",
+      "Ajudam no clima, lazer e qualidade do ar",
+      "Aumentam calor obrigatoriamente",
+      "Substituem hospitais"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Qual é um objetivo de prédios sustentáveis?",
+    "alternativas": [
+      "Reduzir consumo de energia e água",
+      "Aumentar desperdício de recursos",
+      "Usar apenas materiais poluentes",
+      "Eliminar ventilação"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Como a coleta de lixo pode ser melhorada?",
+    "alternativas": [
+      "Jogando tudo em rios",
+      "Misturando resíduos perigosos",
+      "Diminuindo reciclagem",
+      "Com separação, sensores e rotas eficientes"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Qual problema cidades grandes precisam enfrentar?",
+    "alternativas": [
+      "Ausência de pessoas",
+      "Falta total de ruas",
+      "Mobilidade, poluição e moradia",
+      "Excesso de florestas intocadas"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Como o transporte público pode melhorar a cidade?",
+    "alternativas": [
+      "Eliminando ciclovias",
+      "Reduzindo congestionamentos e emissões",
+      "Aumentando carros individuais",
+      "Impedindo deslocamento de trabalhadores"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "Qual é uma vantagem do planejamento urbano?",
+    "alternativas": [
+      "Organizar melhor moradia, transporte e serviços",
+      "Construir sem regras",
+      "Aumentar desigualdade propositalmente",
+      "Eliminar espaços públicos"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Cidades do Futuro",
+    "pergunta": "O que melhora a qualidade de vida urbana?",
+    "alternativas": [
+      "Mais poluição e trânsito",
+      "Menos acesso à saúde",
+      "Menos áreas de convivência",
+      "Serviços eficientes, segurança e sustentabilidade"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Qual habilidade será valiosa em profissões do futuro?",
+    "alternativas": [
+      "Usar apenas métodos antigos",
+      "Recusar colaboração",
+      "Aprender novas ferramentas rapidamente",
+      "Evitar qualquer mudança"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Como a automação pode mudar empregos?",
+    "alternativas": [
+      "Acabando com todos os trabalhos humanos",
+      "Substituindo tarefas repetitivas e criando novas funções",
+      "Eliminando toda necessidade de estudo",
+      "Impedindo empresas de inovar"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "O que é segurança digital no trabalho?",
+    "alternativas": [
+      "Proteção de dados, sistemas e contas",
+      "Desligamento de toda internet",
+      "Uso de senhas públicas",
+      "Compartilhamento livre de dados pessoais"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Por que programação pode ser importante?",
+    "alternativas": [
+      "Serve apenas para jogos",
+      "Não se relaciona com tecnologia",
+      "Substitui todas as profissões",
+      "Permite criar soluções digitais"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Qual área combina biologia e tecnologia?",
+    "alternativas": [
+      "Metalurgia medieval",
+      "Pombo-correio",
+      "Biotecnologia",
+      "Datilografia"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "O que é trabalho remoto?",
+    "alternativas": [
+      "Trabalho sem responsabilidade",
+      "Trabalho realizado à distância com tecnologia",
+      "Trabalho sem comunicação",
+      "Trabalho apenas em fábricas"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Qual profissão pode crescer com energia limpa?",
+    "alternativas": [
+      "Especialista em energias renováveis",
+      "Acendedor de lampiões",
+      "Construtor de fitas cassete",
+      "Operador de telégrafo"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Por que criatividade será importante no futuro?",
+    "alternativas": [
+      "Impede inovação",
+      "Substitui conhecimento básico",
+      "Elimina trabalho em equipe",
+      "Ajuda a criar soluções novas"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "O que é atualização profissional?",
+    "alternativas": [
+      "Trocar de emprego todo mês",
+      "Usar apenas conhecimentos antigos",
+      "Aprender continuamente para acompanhar mudanças",
+      "Parar de estudar depois da escola"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Trabalho e Profissões",
+    "pergunta": "Qual cuidado é importante ao usar IA no trabalho?",
+    "alternativas": [
+      "Evitar responsabilidade humana",
+      "Conferir resultados e respeitar ética",
+      "Aceitar tudo sem verificar",
+      "Usar dados privados sem permissão"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Como assistentes virtuais podem ajudar em casa?",
+    "alternativas": [
+      "Organizando tarefas e controlando aparelhos",
+      "Substituindo alimentos",
+      "Eliminando energia elétrica",
+      "Impedindo comunicação"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Qual é um risco da vida muito conectada?",
+    "alternativas": [
+      "Impossibilidade de usar internet",
+      "Fim de todos os aparelhos",
+      "Ausência total de informação",
+      "Exposição excessiva de dados pessoais"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Como compras digitais podem evoluir?",
+    "alternativas": [
+      "Sem pagamentos seguros",
+      "Eliminando lojas online",
+      "Com recomendações e entregas mais eficientes",
+      "Voltando apenas ao escambo"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Qual pode ser uma mudança na alimentação futura?",
+    "alternativas": [
+      "Proibição de vegetais",
+      "Maior uso de alimentos sustentáveis",
+      "Fim de toda agricultura",
+      "Apenas comidas artificiais obrigatórias"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "O que um eletrodoméstico inteligente pode fazer?",
+    "alternativas": [
+      "Ajustar funcionamento conforme necessidade",
+      "Construir avenidas",
+      "Gerar oxigênio infinito",
+      "Substituir todos os moradores"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Como jogos podem ficar mais imersivos?",
+    "alternativas": [
+      "Sem imagem e som",
+      "Apenas com papel",
+      "Sem interação do jogador",
+      "Com realidade virtual e sensores"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Qual tecnologia pode melhorar segurança residencial?",
+    "alternativas": [
+      "Ausência de senhas",
+      "Desligar alarmes à noite",
+      "Câmeras, sensores e alertas inteligentes",
+      "Portas sempre abertas"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Como casas podem usar energia com mais eficiência?",
+    "alternativas": [
+      "Evitando painéis solares",
+      "Controlando consumo automaticamente",
+      "Deixando tudo ligado sempre",
+      "Usando apenas carvão"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Qual cuidado é necessário com tecnologia doméstica?",
+    "alternativas": [
+      "Proteger senhas e atualizações",
+      "Compartilhar senhas com todos",
+      "Nunca atualizar aparelhos",
+      "Desativar segurança"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Vida Cotidiana",
+    "pergunta": "Como pode ser uma rotina futura equilibrada?",
+    "alternativas": [
+      "Viver apenas online",
+      "Evitar qualquer contato humano",
+      "Dormir cada vez menos",
+      "Usar tecnologia sem abandonar saúde e convivência"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Qual é o maior desafio do teletransporte real?",
+    "alternativas": [
+      "Usar ruas asfaltadas",
+      "Criar mapas de papel",
+      "Transformar matéria em informação com segurança",
+      "Encontrar bicicletas suficientes"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "O que seriam interfaces cérebro-computador?",
+    "alternativas": [
+      "Robôs sem sensores",
+      "Sistemas que ligam sinais cerebrais a dispositivos",
+      "Teclados feitos de papel",
+      "Fones sem som"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Como roupas inteligentes poderiam ajudar?",
+    "alternativas": [
+      "Monitorando saúde ou ajustando temperatura",
+      "Substituindo todos os remédios",
+      "Produzindo comida sozinhas",
+      "Impedindo movimento"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Qual é uma aplicação avançada da impressão 3D?",
+    "alternativas": [
+      "Criar chuva artificial sempre",
+      "Apagar objetos reais",
+      "Substituir toda matéria-prima",
+      "Produzir peças, próteses e estruturas"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Qual desafio teria uma cidade submarina?",
+    "alternativas": [
+      "Excesso de ruas terrestres",
+      "Ausência de gravidade",
+      "Pressão da água, energia e segurança",
+      "Falta de água ao redor"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "O que casas flutuantes poderiam ajudar a enfrentar?",
+    "alternativas": [
+      "Proibição de energia solar",
+      "Aumento do nível do mar em algumas regiões",
+      "Falta de tecnologia espacial",
+      "Ausência de rios"
+    ],
+    "correta": 1
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Qual seria uma função de robôs avançados de resgate?",
+    "alternativas": [
+      "Entrar em locais perigosos para salvar pessoas",
+      "Aumentar acidentes",
+      "Bloquear hospitais",
+      "Desligar comunicações"
+    ],
+    "correta": 0
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Por que energia limpa abundante transformaria o mundo?",
+    "alternativas": [
+      "Aumentaria dependência de carvão",
+      "Diminuiria tecnologias médicas",
+      "Impediria transporte elétrico",
+      "Reduziria poluição e ampliaria acesso à energia"
+    ],
+    "correta": 3
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Qual é um risco de tecnologias muito poderosas?",
+    "alternativas": [
+      "Fim automático de problemas",
+      "Impossibilidade de erro",
+      "Uso sem ética ou sem controle",
+      "Melhora obrigatória para todos"
+    ],
+    "correta": 2
+  },
+  {
+    "bloco": "Invenções Futuristas",
+    "pergunta": "Qual deve ser uma prioridade ao criar invenções futuras?",
+    "alternativas": [
+      "Dificultar o acesso sempre",
+      "Segurança, ética e benefício social",
+      "Apenas velocidade de lançamento",
+      "Ignorar consequências"
+    ],
+    "correta": 1
+  }
+];
+
+let todasPerguntas = [...perguntas];
+let blocosAtivos = {};
+let indice = 0;
+let pontos = 0;
+let nomeJogador = "";
+let perguntasDoBloco = [];
+let inicioTempo = 0;
+let intervaloTempo = null;
+let blocoAtual = "";
+let respostasDetalhadas = [];
+
+function formatarTempo(segundos) {
+  const minutos = Math.floor(segundos / 60);
+  const resto = segundos % 60;
+  if (minutos === 0) return resto + "s";
+  return minutos + "min " + resto + "s";
+}
+
+function atualizarTempo() {
+  const agora = Date.now();
+  const segundos = Math.floor((agora - inicioTempo) / 1000);
+  document.getElementById("tempo").innerText = "Tempo: " + formatarTempo(segundos);
+}
+
+function embaralhar(lista) {
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
+async function carregarConfiguracoes() {
+  const status = document.getElementById("statusBlocos");
+  status.innerText = "Carregando blocos...";
+
+  try {
+    const snapPerguntas = await db.collection("perguntasPersonalizadas").get();
+    snapPerguntas.forEach(doc => {
+      const p = doc.data();
+      if (p.bloco && p.pergunta && Array.isArray(p.alternativas)) {
+        todasPerguntas.push({
+          bloco: p.bloco,
+          pergunta: p.pergunta,
+          alternativas: p.alternativas,
+          correta: Number(p.correta || 0)
+        });
+      }
+    });
+
+    const snapBlocos = await db.collection("blocos").get();
+    snapBlocos.forEach(doc => {
+      blocosAtivos[doc.id] = doc.data().ativo !== false;
+    });
+
+    renderizarBotoesBlocos();
+  } catch (erro) {
+    console.error(erro);
+    status.innerText = "Erro ao carregar blocos. Verifique o Firebase.";
+  }
+}
+
+function renderizarBotoesBlocos() {
+  const div = document.getElementById("listaBlocos");
+  const status = document.getElementById("statusBlocos");
+  div.innerHTML = "";
+
+  const blocos = [...new Set(todasPerguntas.map(q => q.bloco))]
+    .filter(bloco => blocosAtivos[bloco] !== false);
+
+  if (blocos.length === 0) {
+    status.innerText = "Nenhum bloco está ativo no momento.";
+    return;
+  }
+
+  status.innerText = "Escolha um bloco ativo:";
+  blocos.forEach((bloco, i) => {
+    const botao = document.createElement("button");
+    botao.className = "bloco-btn";
+    botao.innerText = "Bloco " + (i + 1) + " - " + bloco;
+    botao.onclick = () => iniciarQuiz(bloco);
+    div.appendChild(botao);
+  });
+}
+
+function iniciarBlocoAleatorio() {
+  const blocos = [...new Set(todasPerguntas.map(q => q.bloco))]
+    .filter(bloco => blocosAtivos[bloco] !== false);
+  if (blocos.length === 0) { alert("Nenhum bloco está ativo no momento."); return; }
+  const blocoSorteado = blocos[Math.floor(Math.random() * blocos.length)];
+  iniciarQuiz(blocoSorteado);
+}
+
+function iniciarPerguntasAleatorias() {
+  nomeJogador = document.getElementById("nome").value.trim();
+  if (nomeJogador === "") { alert("Digite seu nome para começar o quiz."); return; }
+  let quantidade = Number(document.getElementById("quantidadeAleatoria").value);
+  if (!quantidade || quantidade < 1) { alert("Digite uma quantidade válida de perguntas."); return; }
+
+  const perguntasAtivas = todasPerguntas.filter(q => blocosAtivos[q.bloco] !== false);
+  if (perguntasAtivas.length === 0) { alert("Nenhuma pergunta ativa disponível."); return; }
+  if (quantidade > perguntasAtivas.length) quantidade = perguntasAtivas.length;
+
+  blocoAtual = "Perguntas aleatórias";
+  perguntasDoBloco = embaralhar(perguntasAtivas).slice(0, quantidade);
+  indice = 0; pontos = 0; respostasDetalhadas = [];
+  iniciarTelaQuiz();
+}
+
+function iniciarQuiz(blocoEscolhido) {
+  nomeJogador = document.getElementById("nome").value.trim();
+  if (nomeJogador === "") { alert("Digite seu nome para começar o quiz."); return; }
+  if (blocosAtivos[blocoEscolhido] === false) { alert("Esse bloco está desativado pelo administrador."); return; }
+
+  blocoAtual = blocoEscolhido;
+  perguntasDoBloco = todasPerguntas.filter(q => q.bloco === blocoEscolhido);
+  if (perguntasDoBloco.length === 0) { alert("Esse bloco ainda não tem perguntas."); return; }
+
+  indice = 0; pontos = 0; respostasDetalhadas = [];
+  iniciarTelaQuiz();
+}
+
+function iniciarTelaQuiz() {
+  inicioTempo = Date.now();
+  clearInterval(intervaloTempo);
+  intervaloTempo = setInterval(atualizarTempo, 1000);
+  atualizarTempo();
+  document.getElementById("inicio").style.display = "none";
+  document.getElementById("quiz").style.display = "block";
+  mostrarPergunta();
+}
+
+function mostrarPergunta() {
+  const q = perguntasDoBloco[indice];
+  document.getElementById("bloco").innerText = blocoAtual === "Perguntas aleatórias" ? "Modo: Perguntas aleatórias | Tema: " + q.bloco : "Bloco: " + q.bloco;
+  document.getElementById("progresso").innerText = "Pergunta " + (indice + 1) + " de " + perguntasDoBloco.length;
+  document.getElementById("pergunta").innerText = q.pergunta;
+  document.getElementById("progressoBarra").style.width = ((indice) / perguntasDoBloco.length) * 100 + "%";
+
+  const div = document.getElementById("alternativas");
+  div.innerHTML = "";
+  for (let i = 0; i < q.alternativas.length; i++) {
+    div.innerHTML += `<label class="alternativa"><input type="radio" name="resposta" value="${i}"> ${String.fromCharCode(65 + i)}) ${q.alternativas[i]}</label>`;
+  }
+}
+
+function proximaPergunta() {
+  const marcada = document.querySelector('input[name="resposta"]:checked');
+  if (!marcada) { alert("Escolha uma alternativa antes de continuar."); return; }
+
+  const q = perguntasDoBloco[indice];
+  const resposta = Number(marcada.value);
+  const acertou = resposta === q.correta;
+  if (acertou) pontos++;
+
+  respostasDetalhadas.push({
+    pergunta: q.pergunta,
+    bloco: q.bloco,
+    respostaMarcada: q.alternativas[resposta],
+    respostaCorreta: q.alternativas[q.correta],
+    acertou: acertou
+  });
+
+  indice++;
+  if (indice < perguntasDoBloco.length) mostrarPergunta();
+  else mostrarResultado();
+}
+
+function mostrarResultado() {
+  clearInterval(intervaloTempo);
+  const tempoFinal = Math.floor((Date.now() - inicioTempo) / 1000);
+  document.getElementById("quiz").style.display = "none";
+  document.getElementById("resultado").style.display = "block";
+  document.getElementById("progressoBarra").style.width = "100%";
+  salvarResultado(nomeJogador, blocoAtual, pontos, perguntasDoBloco.length, tempoFinal);
+
+  let mensagem = pontos >= 9 ? "Excelente!" : pontos >= 6 ? "Muito bom!" : "Continue praticando!";
+  document.getElementById("textoResultado").innerText = nomeJogador + ", você acertou " + pontos + " de " + perguntasDoBloco.length + " perguntas. Tempo total: " + formatarTempo(tempoFinal) + ".";
+  document.getElementById("mensagemResultado").innerText = mensagem;
+}
+
+async function salvarResultado(nome, bloco, acertos, total, tempoSegundos) {
+  const agora = new Date();
+  try {
+    await db.collection("resultados").add({
+      nome, bloco, acertos, total,
+      porcentagem: Math.round((acertos / total) * 100),
+      tempo: formatarTempo(tempoSegundos),
+      tempoSegundos,
+      horario: agora.toLocaleString("pt-BR"),
+      criadoEm: agora.toISOString(),
+      respostas: respostasDetalhadas
+    });
+  } catch (erro) {
+    alert("Erro ao salvar no Firebase. Verifique a internet e as regras do Firestore.");
+    console.error(erro);
+  }
+}
+
+function reiniciar() {
+  clearInterval(intervaloTempo);
+  indice = 0; pontos = 0; perguntasDoBloco = []; respostasDetalhadas = [];
+  document.getElementById("resultado").style.display = "none";
+  document.getElementById("inicio").style.display = "block";
+}
+
+window.iniciarQuiz = iniciarQuiz;
+window.iniciarBlocoAleatorio = iniciarBlocoAleatorio;
+window.iniciarPerguntasAleatorias = iniciarPerguntasAleatorias;
+window.proximaPergunta = proximaPergunta;
+window.reiniciar = reiniciar;
+carregarConfiguracoes();
+</script>
+</body>
+</html>

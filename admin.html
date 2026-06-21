@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Quiz do Futuro</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #101936, #243b73); margin: 0; padding: 0; color: white; }
+    .container { max-width: 1100px; margin: 35px auto; background: rgba(255, 255, 255, 0.10); padding: 30px; border-radius: 16px; box-shadow: 0 0 20px rgba(0,0,0,0.4); }
+    h1, h2 { text-align: center; }
+    input, select, textarea, button { padding: 12px; border-radius: 8px; border: none; font-size: 16px; box-sizing: border-box; }
+    input, select, textarea { width: 100%; margin: 6px 0 12px; }
+    textarea { min-height: 70px; resize: vertical; }
+    button { margin: 8px; background: #00c2ff; color: #06111f; font-weight: bold; cursor: pointer; }
+    button:hover { background: #66ddff; }
+    .botoes { text-align: center; margin-bottom: 15px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: rgba(255,255,255,0.12); }
+    th, td { border: 1px solid rgba(255,255,255,0.25); padding: 8px; font-size: 14px; text-align: center; }
+    th { background: rgba(0,194,255,0.35); }
+    .pequeno { text-align: center; opacity: 0.85; }
+    .aviso { background: rgba(255,255,255,0.12); padding: 12px; border-radius: 10px; text-align: center; margin: 12px 0; }
+    .linha-bloco { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: rgba(255,255,255,0.12); margin: 8px 0; padding: 10px; border-radius: 10px; }
+    .linha-bloco span { text-align: left; flex: 1; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .detalhes { text-align: left; background: rgba(0,0,0,0.22); padding: 10px; border-radius: 10px; margin-top: 8px; }
+    .correto { color: #7CFF9B; font-weight: bold; }
+    .errado { color: #FF8A8A; font-weight: bold; }
+    @media (max-width: 700px) { .container { margin: 10px; padding: 15px; } th, td { padding: 5px; font-size: 12px; } .form-grid { grid-template-columns: 1fr; } .linha-bloco { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Área do Administrador</h1>
+    <p class="pequeno">Resultados, blocos e perguntas salvos online no Firebase.</p>
+
+    <div class="botoes">
+      <button onclick="carregarResultados()">Atualizar resultados</button>
+      <button onclick="baixarCSV()">Baixar CSV</button>
+      <button onclick="location.href='index.html'">Abrir quiz</button>
+    </div>
+
+    <h2>Adicionar novo bloco</h2>
+    <div class="aviso">
+      <input id="novoBloco" type="text" placeholder="Nome do novo bloco">
+      <button onclick="adicionarBloco()">Adicionar bloco</button>
+    </div>
+
+    <h2>Ativar ou desativar blocos</h2>
+    <div id="controleBlocos" class="aviso">Carregando blocos...</div>
+
+    <h2>Adicionar pergunta</h2>
+    <div class="aviso" style="text-align:left;">
+      <label>Bloco:</label>
+      <select id="blocoPergunta"></select>
+      <label>Pergunta:</label>
+      <textarea id="novaPergunta" placeholder="Digite a pergunta"></textarea>
+      <div class="form-grid">
+        <input id="alt0" placeholder="Alternativa A">
+        <input id="alt1" placeholder="Alternativa B">
+        <input id="alt2" placeholder="Alternativa C">
+        <input id="alt3" placeholder="Alternativa D">
+      </div>
+      <label>Alternativa correta:</label>
+      <select id="correta">
+        <option value="0">A</option>
+        <option value="1">B</option>
+        <option value="2">C</option>
+        <option value="3">D</option>
+      </select>
+      <div style="text-align:center;"><button onclick="adicionarPergunta()">Salvar pergunta</button></div>
+    </div>
+
+    <div id="status" class="aviso">Carregando...</div>
+    <div id="resumo"></div>
+    <div id="tabelaResultados"></div>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAQa01JldZB_4qRkqcMyaDw2PbQ6avkuY8",
+  authDomain: "local-storage-5edf9.firebaseapp.com",
+  projectId: "local-storage-5edf9",
+  storageBucket: "local-storage-5edf9.firebasestorage.app",
+  messagingSenderId: "701733020913",
+  appId: "1:701733020913:web:fff6cf9e72e1aa92a07550",
+  measurementId: "G-GZR05M50FP"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+let resultadosGlobais = [];
+
+const blocosPadrao = ["Tecnologia", "Transporte", "Espaço", "Meio Ambiente", "Medicina", "Educação", "Cidades do Futuro", "Trabalho e Profissões", "Vida Cotidiana", "Invenções Futuristas"];
+let blocosGlobais = [];
+
+async function carregarControleBlocos() {
+  const div = document.getElementById("controleBlocos");
+  const select = document.getElementById("blocoPergunta");
+  div.innerHTML = "Carregando...";
+  select.innerHTML = "";
+
+  const mapa = {};
+  blocosPadrao.forEach(b => mapa[b] = true);
+
+  const snapBlocos = await db.collection("blocos").get();
+  snapBlocos.forEach(doc => mapa[doc.id] = doc.data().ativo !== false);
+
+  const snapPerguntas = await db.collection("perguntasPersonalizadas").get();
+  snapPerguntas.forEach(doc => {
+    const b = doc.data().bloco;
+    if (b && mapa[b] === undefined) mapa[b] = true;
+  });
+
+  blocosGlobais = Object.keys(mapa);
+  div.innerHTML = "";
+
+  blocosGlobais.forEach(bloco => {
+    const ativo = mapa[bloco] !== false;
+    div.innerHTML += `
+      <div class="linha-bloco">
+        <span><strong>${bloco}</strong><br><small>Status: ${ativo ? "ativo" : "desativado"}</small></span>
+        <button onclick="alterarBloco('${bloco.replace(/'/g, "\'")}', ${!ativo})">${ativo ? "Desativar" : "Ativar"}</button>
+      </div>`;
+
+    const opt = document.createElement("option");
+    opt.value = bloco;
+    opt.textContent = bloco;
+    select.appendChild(opt);
+  });
+}
+
+async function alterarBloco(bloco, novoStatus) {
+  await db.collection("blocos").doc(bloco).set({ ativo: novoStatus, atualizadoEm: new Date().toISOString() }, { merge: true });
+  carregarControleBlocos();
+}
+
+async function adicionarBloco() {
+  const nome = document.getElementById("novoBloco").value.trim();
+  if (nome === "") { alert("Digite o nome do bloco."); return; }
+  await db.collection("blocos").doc(nome).set({ ativo: true, criadoEm: new Date().toISOString() }, { merge: true });
+  document.getElementById("novoBloco").value = "";
+  await carregarControleBlocos();
+  alert("Bloco adicionado. Agora você pode adicionar perguntas nele.");
+}
+
+async function adicionarPergunta() {
+  const bloco = document.getElementById("blocoPergunta").value;
+  const pergunta = document.getElementById("novaPergunta").value.trim();
+  const alternativas = [0,1,2,3].map(i => document.getElementById("alt" + i).value.trim());
+  const correta = Number(document.getElementById("correta").value);
+
+  if (!bloco || pergunta === "" || alternativas.some(a => a === "")) {
+    alert("Preencha o bloco, a pergunta e as 4 alternativas.");
+    return;
+  }
+
+  await db.collection("perguntasPersonalizadas").add({
+    bloco, pergunta, alternativas, correta,
+    criadoEm: new Date().toISOString()
+  });
+
+  document.getElementById("novaPergunta").value = "";
+  for (let i = 0; i < 4; i++) document.getElementById("alt" + i).value = "";
+  document.getElementById("correta").value = "0";
+  await db.collection("blocos").doc(bloco).set({ ativo: true }, { merge: true });
+  await carregarControleBlocos();
+  alert("Pergunta adicionada com sucesso!");
+}
+
+async function carregarResultados() {
+  const status = document.getElementById("status");
+  const div = document.getElementById("tabelaResultados");
+  const resumo = document.getElementById("resumo");
+  status.innerText = "Carregando resultados...";
+  div.innerHTML = "";
+  resumo.innerHTML = "";
+
+  try {
+    const snapshot = await db.collection("resultados").orderBy("criadoEm", "desc").get();
+    resultadosGlobais = [];
+    snapshot.forEach((doc) => resultadosGlobais.push({ id: doc.id, ...doc.data() }));
+
+    if (resultadosGlobais.length === 0) { status.innerText = "Nenhum resultado registrado ainda."; return; }
+
+    let somaAcertos = 0, somaTempo = 0, somaPorcentagem = 0;
+    for (let r of resultadosGlobais) {
+      somaAcertos += Number(r.acertos || 0);
+      somaTempo += Number(r.tempoSegundos || 0);
+      somaPorcentagem += r.total ? (Number(r.acertos || 0) / Number(r.total || 1)) * 100 : 0;
+    }
+
+    const mediaAcertos = (somaAcertos / resultadosGlobais.length).toFixed(1);
+    const mediaPorcentagem = Math.round(somaPorcentagem / resultadosGlobais.length);
+    const mediaTempo = formatarTempo(Math.round(somaTempo / resultadosGlobais.length));
+
+    status.innerText = "Resultados carregados.";
+    resumo.innerHTML = `<h2>Total: ${resultadosGlobais.length} | Média: ${mediaAcertos} acertos | ${mediaPorcentagem}% | Tempo médio: ${mediaTempo}</h2>`;
+
+    let tabela = `<table><tr><th>Horário</th><th>Nome</th><th>Bloco</th><th>Acertos</th><th>%</th><th>Tempo</th><th>Mais informações</th></tr>`;
+    resultadosGlobais.forEach((r, i) => {
+      const porcentagem = r.total ? Math.round((Number(r.acertos || 0) / Number(r.total || 1)) * 100) : 0;
+      tabela += `<tr><td>${r.horario || ""}</td><td>${r.nome || ""}</td><td>${r.bloco || ""}</td><td>${r.acertos || 0}/${r.total || 0}</td><td>${porcentagem}%</td><td>${r.tempo || ""}</td><td><button onclick="mostrarDetalhes(${i})">Ver</button></td></tr><tr id="detalhes-${i}" style="display:none;"><td colspan="7"><div class="detalhes" id="conteudo-${i}"></div></td></tr>`;
+    });
+    tabela += "</table>";
+    div.innerHTML = tabela;
+  } catch (erro) {
+    status.innerText = "Erro ao carregar resultados. Verifique as regras do Firestore.";
+    console.error(erro);
+  }
+}
+
+function mostrarDetalhes(i) {
+  const linha = document.getElementById("detalhes-" + i);
+  const conteudo = document.getElementById("conteudo-" + i);
+  const r = resultadosGlobais[i];
+  if (linha.style.display === "none") {
+    linha.style.display = "table-row";
+    if (!r.respostas || r.respostas.length === 0) { conteudo.innerHTML = "Esse resultado antigo não tem detalhes salvos."; return; }
+    conteudo.innerHTML = r.respostas.map((resp, n) => `
+      <p><strong>${n + 1}. ${resp.pergunta}</strong><br>
+      Sua resposta: ${resp.respostaMarcada}<br>
+      Correta: ${resp.respostaCorreta}<br>
+      <span class="${resp.acertou ? "correto" : "errado"}">${resp.acertou ? "Acertou" : "Errou"}</span></p>`).join("");
+  } else { linha.style.display = "none"; }
+}
+
+function formatarTempo(segundos) {
+  const minutos = Math.floor(segundos / 60);
+  const resto = segundos % 60;
+  if (minutos === 0) return resto + "s";
+  return minutos + "min " + resto + "s";
+}
+
+function baixarCSV() {
+  if (resultadosGlobais.length === 0) { alert("Não há resultados para baixar."); return; }
+  let csv = "Horario,Nome,Bloco,Acertos,Total,Porcentagem,Tempo\n";
+  for (let r of resultadosGlobais) {
+    const porcentagem = r.total ? Math.round((Number(r.acertos || 0) / Number(r.total || 1)) * 100) : 0;
+    csv += `"${r.horario || ""}","${r.nome || ""}","${r.bloco || ""}",${r.acertos || 0},${r.total || 0},${porcentagem},"${r.tempo || ""}"
+`;
+  }
+  const arquivo = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(arquivo);
+  link.download = "resultados_quiz.csv";
+  link.click();
+}
+
+window.carregarResultados = carregarResultados;
+window.baixarCSV = baixarCSV;
+window.alterarBloco = alterarBloco;
+window.adicionarBloco = adicionarBloco;
+window.adicionarPergunta = adicionarPergunta;
+window.mostrarDetalhes = mostrarDetalhes;
+carregarControleBlocos();
+carregarResultados();
+</script>
+</body>
+</html>
